@@ -1,4 +1,4 @@
-package crawler;
+package WebCrawler.crawler;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -12,7 +12,7 @@ import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import ad.Ad;
+import WebCrawler.ad.Ad;
 
 public class CrawlerMain {
     public static void main(String[] args) throws IOException {

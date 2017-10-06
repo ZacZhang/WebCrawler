@@ -1,4 +1,4 @@
-package crawler;
+package WebCrawler.crawler;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,7 +16,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import ad.Ad;
+import WebCrawler.ad.Ad;
 
 
 public class AmazonCrawler {

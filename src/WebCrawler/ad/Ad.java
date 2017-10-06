@@ -1,4 +1,4 @@
-package ad;
+package WebCrawler.ad;
 
 import java.io.Serializable;
 import java.util.List;
