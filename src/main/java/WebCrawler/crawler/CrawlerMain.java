@@ -7,7 +7,10 @@ import java.io.FileWriter;
 import java.io.BufferedWriter;
 
 import java.io.IOException;
+import java.nio.channels.Channel;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
+
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,17 +18,30 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import WebCrawler.ad.Ad;
 
 public class CrawlerMain {
-    public static void main(String[] args) throws IOException {
-        if(args.length < 2)
+    private final static String IN_QUEUE_NAME = "distributed-crawler-queue-feed";
+    private final static String OUT_QUEUE_NAME = "distributed-crawler-queue-product";
+    private final static String ERR_QUEUE_NAME = "distributed-crawler-queue-error";
+
+    private static AmazonCrawler crawler;
+    private static ObjectMapper mapper;
+    //private static BufferedWriter bw;
+    private static Channel outChannel;
+    private static Channel errChannel;
+
+    public static void main(String[] args) throws IOException, TimeoutException, InterruptedException {
+        if(args.length < 1)
         {
-            System.out.println("Usage: Crawler <rawQueryDataFilePath> <adsDataFilePath> <proxyFilePath> <logFilePath>");
+            System.out.println("Usage: Crawler <proxyFilePath>");
             System.exit(0);
         }
-        ObjectMapper mapper = new ObjectMapper();
-        String rawQueryDataFilePath = args[0];
-        String adsDataFilePath = args[1];
-        String proxyFilePath = args[2];
-        String logFilePath = args[3];
+        mapper = new ObjectMapper();
+        // String rawQueryDataFilePath = args[0];
+        // String adsDataFilePath = args[1];
+        String proxyFilePath = args[0];
+        // String logFilePath = args[3];
+
+
+
         AmazonCrawler crawler = new AmazonCrawler(proxyFilePath, logFilePath);
         File file = new File(adsDataFilePath);
         // if file doesnt exists, then create it
