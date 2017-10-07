@@ -10,7 +10,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.QueueingConsumer;
 
 public class FeederMain {
-    private final static String QUEUE_NAME = "distributed-crawler-queue";
+    private final static String QUEUE_NAME = "distributed-crawler-queue-feed";
 
     public static void main(String[] args) throws Exception {
 

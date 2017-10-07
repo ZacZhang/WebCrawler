@@ -1,69 +1,57 @@
 package WebCrawler.crawler;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.BufferedWriter;
-
-import java.io.IOException;
-import java.util.*;
-import java.net.*;
-
-//import org.apache.log4j.Logger;
-
+import WebCrawler.ad.Ad;
+import com.rabbitmq.client.Channel;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import WebCrawler.ad.Ad;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
+import java.util.*;
 
 
 public class AmazonCrawler {
     //https://www.amazon.com/s/ref=nb_sb_noss?field-keywords=nikon+SLR&page=2
     private static final String AMAZON_QUERY_URL = "https://www.amazon.com/s/ref=nb_sb_noss?field-keywords=";
     private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36";
+
     private final String authUser = "bittiger";
     private final String authPassword = "cs504";
+
     private List<String> proxyList;
     private List<String> titleList;
     private List<String> categoryList;
     private HashSet crawledUrl;
-
-    BufferedWriter logBFWriter;
+    private Channel errorChannel;
+    private String errorChannelName;
 
     private int index = 0;
 
-    public AmazonCrawler(String proxy_file, String log_file) {
-        crawledUrl = new HashSet();
-        initProxyList(proxy_file);
+    public AmazonCrawler(String proxy_file, Channel errChannel, String errChannelName) {
 
+        initProxyList(proxy_file);
         initHtmlSelector();
 
-        initLog(log_file);
+        this.crawledUrl = new HashSet();
+        this.errorChannel = errChannel;
+        this.errorChannelName = errChannelName;
 
-    }
-
-    public void cleanup() {
-        if (logBFWriter != null) {
-            try {
-                logBFWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     //raw url: https://www.amazon.com/KNEX-Model-Building-Set-Engineering/dp/B00HROBJXY/ref=sr_1_14/132-5596910-9772831?ie=UTF8&qid=1493512593&sr=8-14&keywords=building+toys
     //normalizedUrl: https://www.amazon.com/KNEX-Model-Building-Set-Engineering/dp/B00HROBJXY
     private String normalizeUrl(String url) {
         int i = url.indexOf("ref");
-        String normalizedUrl = url.substring(0, i - 1);
-        return normalizedUrl;
+        return url.substring(0, i - 1);
     }
 
     private void initProxyList(String proxy_file) {
-        proxyList = new ArrayList<String>();
+        proxyList = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(proxy_file))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -90,31 +78,15 @@ public class AmazonCrawler {
     }
 
     private void initHtmlSelector() {
-        titleList = new ArrayList<String>();
+        titleList = new ArrayList<>();
         titleList.add(" > div > div > div > div.a-fixed-left-grid-col.a-col-right > div.a-row.a-spacing-small > div:nth-child(1)  > a > h2");
         titleList.add(" > div > div > div > div.a-fixed-left-grid-col.a-col-right > div.a-row.a-spacing-small > a > h2");
 
-        categoryList = new ArrayList<String>();
+        categoryList = new ArrayList<>();
         //#refinements > div.categoryRefinementsSection > ul.forExpando > li:nth-child(1) > a > span.boldRefinementLink
         categoryList.add("#refinements > div.categoryRefinementsSection > ul.forExpando > li > a > span.boldRefinementLink");
         categoryList.add("#refinements > div.categoryRefinementsSection > ul.forExpando > li:nth-child(1) > a > span.boldRefinementLink");
 
-
-    }
-
-    private void initLog(String log_path) {
-        try {
-            File log = new File(log_path);
-            // if file doesnt exists, then create it
-            if (!log.exists()) {
-                log.createNewFile();
-            }
-            FileWriter fw = new FileWriter(log.getAbsoluteFile());
-            logBFWriter = new BufferedWriter(fw);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
     }
 
@@ -153,13 +125,11 @@ public class AmazonCrawler {
             setProxy();
 
             String url = AMAZON_QUERY_URL + query;
-            HashMap<String,String> headers = new HashMap<String,String>();
+            HashMap<String,String> headers = new HashMap<>();
             headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
             headers.put("Accept-Encoding", "gzip, deflate, sdch, br");
             headers.put("Accept-Language", "en-US,en;q=0.8");
             Document doc = Jsoup.connect(url).headers(headers).userAgent(USER_AGENT).timeout(100000).get();
-
-            //Document doc = Jsoup.connect(url).userAgent(USER_AGENT).timeout(100000).get();
 
             //System.out.println(doc.text());
             Elements results = doc.select("li[data-asin]");
@@ -177,16 +147,16 @@ public class AmazonCrawler {
                     String normalizedUrl = normalizeUrl(detail_url);
                     // dedupe
                     if(crawledUrl.contains(normalizedUrl)) {
-                        logBFWriter.write("crawled url:" + normalizedUrl);
-                        logBFWriter.newLine();
+                        String errMsg = "crawled url:" + normalizedUrl;
+                        errorChannel.basicPublish("", errorChannelName, null, errMsg.getBytes("UTF-8"));
                         continue;
                     }
                     crawledUrl.add(normalizedUrl);
                     System.out.println("normalized url  = " + normalizedUrl);
                     ad.detail_url = normalizedUrl;
                 } else {
-                    logBFWriter.write("cannot parse detail for query:" + query + ", title: " + ad.title);
-                    logBFWriter.newLine();
+                    String errMsg = "can not parse detail for query: " + query + ", title: " + ad.title;
+                    errorChannel.basicPublish("", errorChannelName, null, errMsg.getBytes("UTF-8"));
                     continue;
                 }
 
@@ -210,8 +180,8 @@ public class AmazonCrawler {
                 }
 
                 if (Objects.equals(ad.title, "")) {
-                    logBFWriter.write("cannot parse title for query: " + query);
-                    logBFWriter.newLine();
+                    String errMsg = "can not parse title for query: " + query;
+                    errorChannel.basicPublish("", errorChannelName, null, errMsg.getBytes("UTF-8"));
                     continue;
                 }
                 //#result_0 > div > div > div > div.a-fixed-left-grid-col.a-col-left > div > div > a > img
@@ -223,8 +193,8 @@ public class AmazonCrawler {
                     //System.out.println("thumbnail = " + thumbnail_ele.attr("src"));
                     ad.thumbnail = thumbnail_ele.attr("src");
                 } else {
-                    logBFWriter.write("cannot parse thumbnail for query:" + query + ", title: " + ad.title);
-                    logBFWriter.newLine();
+                    String errMsg = "can not parse thumbnail for query: " + query + ", title: " + ad.title;
+                    errorChannel.basicPublish("", errorChannelName, null, errMsg.getBytes("UTF-8"));
                     continue;
                 }
 
@@ -283,9 +253,9 @@ public class AmazonCrawler {
                         break;
                     }
                 }
-                if (ad.category  == "") {
-                    logBFWriter.write("cannot parse category for query:" + query + ", title: " + ad.title);
-                    logBFWriter.newLine();
+                if (Objects.equals(ad.category, "")) {
+                    String errMsg = "can not parse category for query: " + query + ", title: " + ad.title;
+                    errorChannel.basicPublish("", errorChannelName, null, errMsg.getBytes("UTF-8"));
                     continue;
                 }
                 products.add(ad);

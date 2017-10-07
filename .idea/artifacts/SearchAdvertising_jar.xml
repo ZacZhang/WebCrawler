@@ -1,0 +1,16 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="SearchAdvertising:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/SearchAdvertising_jar</output-path>
+    <root id="archive" name="SearchAdvertising.jar">
+      <element id="module-output" name="SearchAdvertising" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/jackson-core-2.8.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/jackson-databind-2.8.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/amqp-client-4.1.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/jsoup-1.10.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/slf4j-api-1.7.21.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/jackson-annotations-2.8.3.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/javalib/slf4j-simple-1.7.22.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/com/rabbitmq/amqp-client/3.3.4/amqp-client-3.3.4.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

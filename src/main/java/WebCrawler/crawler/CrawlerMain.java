@@ -1,21 +1,15 @@
 package WebCrawler.crawler;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.BufferedWriter;
+import WebCrawler.ad.Ad;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.*;
 
 import java.io.IOException;
-import java.nio.channels.Channel;
+import java.net.URISyntaxException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import WebCrawler.ad.Ad;
 
 public class CrawlerMain {
     private final static String IN_QUEUE_NAME = "distributed-crawler-queue-feed";
@@ -24,9 +18,7 @@ public class CrawlerMain {
 
     private static AmazonCrawler crawler;
     private static ObjectMapper mapper;
-    //private static BufferedWriter bw;
     private static Channel outChannel;
-    private static Channel errChannel;
 
     public static void main(String[] args) throws IOException, TimeoutException, InterruptedException {
         if(args.length < 1)
@@ -35,54 +27,71 @@ public class CrawlerMain {
             System.exit(0);
         }
         mapper = new ObjectMapper();
-        // String rawQueryDataFilePath = args[0];
-        // String adsDataFilePath = args[1];
+
         String proxyFilePath = args[0];
-        // String logFilePath = args[3];
 
-
-
-        AmazonCrawler crawler = new AmazonCrawler(proxyFilePath, logFilePath);
-        File file = new File(adsDataFilePath);
-        // if file doesnt exists, then create it
-        if (!file.exists()) {
-            file.createNewFile();
+        String uri = System.getenv("CLOUDAMQP_URL");
+        if (uri == null) uri = "amqp://jytyrkgt:9slXBZWUvB_pxzochwbOy7uSL1bKD9Ks@mosquito.rmq.cloudamqp.com/jytyrkgt";
+        ConnectionFactory factory = new ConnectionFactory();
+        try {
+            factory.setUri(uri);
+        } catch (URISyntaxException | NoSuchAlgorithmException | KeyManagementException e) {
+            e.printStackTrace();
         }
 
-        FileWriter fw = new FileWriter(file.getAbsoluteFile());
-        BufferedWriter bw = new BufferedWriter(fw);
-        try (BufferedReader br = new BufferedReader(new FileReader(rawQueryDataFilePath))) {
+        //Recommended settings
+        factory.setRequestedHeartbeat(30);
+        factory.setConnectionTimeout(30000);
 
-            String line;
-            while ((line = br.readLine()) != null) {
-                if(line.isEmpty())
-                    continue;
-                System.out.println(line);
-                String[] fields = line.split(",");
-                String query = fields[0].trim();
-                double bidPrice = Double.parseDouble(fields[1].trim());
-                int campaignId = Integer.parseInt(fields[2].trim());
-                int queryGroupId = Integer.parseInt(fields[3].trim());
-                List<Ad> ads =  crawler.GetAdBasicInfoByQuery(query, bidPrice, campaignId, queryGroupId);
-                for(Ad ad : ads) {
-                    String jsonInString = mapper.writeValueAsString(ad);
-                    //System.out.println(jsonInString);
-                    bw.write(jsonInString);
-                    bw.newLine();
+        Connection connection1 = factory.newConnection();
+        Channel inChannel = connection1.createChannel();
+        // String queue = "distributed-crawler-queue-feed";
+        inChannel.queueDeclare(IN_QUEUE_NAME, true, false, false, null);
+        inChannel.basicQos(100); // Per consumer limit
+        System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+
+        Connection connection2 = factory.newConnection();
+        outChannel = connection2.createChannel();
+        // String queue = "distributed-crawler-queue-product";
+        outChannel.queueDeclare(OUT_QUEUE_NAME, true, false, false, null);
+
+        Connection connection3 = factory.newConnection();
+        Channel errChannel = connection3.createChannel();
+        // String queue = "distributed-crawler-queue-err";
+        errChannel.queueDeclare(ERR_QUEUE_NAME, true, false, false, null);
+
+        crawler = new AmazonCrawler(proxyFilePath, errChannel, ERR_QUEUE_NAME);
+
+
+        Consumer consumer = new DefaultConsumer(inChannel) {
+            @Override
+            public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
+                    throws IOException {
+                try {
+                    String message = new String(body, "UTF-8");
+                    System.out.println(" [x] Received '" + message + "'");
+                    String[] fields = message.split(",");
+                    String query = fields[0].trim();
+                    double bidPrice = Double.parseDouble(fields[1].trim());
+                    int campaignId = Integer.parseInt(fields[2].trim());
+                    int queryGroupId = Integer.parseInt(fields[3].trim());
+
+                    List<Ad> ads = crawler.GetAdBasicInfoByQuery(query, bidPrice, campaignId, queryGroupId);
+                    for (Ad ad : ads) {
+                        String jsonInString = mapper.writeValueAsString(ad);
+                        System.out.println(jsonInString);
+                        outChannel.basicPublish("", OUT_QUEUE_NAME, null, jsonInString.getBytes("UTF-8"));
+                    }
+                    Thread.sleep(2000);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                Thread.sleep(5000);
             }
-            bw.close();
-        }catch(InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        } catch (JsonGenerationException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        };
 
-        crawler.cleanup();
+        inChannel.basicConsume(IN_QUEUE_NAME, true, consumer);
+
     }
 }
