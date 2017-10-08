@@ -114,7 +114,7 @@ public class AmazonCrawler {
         }
     }
 
-    public List<Ad> GetAdBasicInfoByQuery(String query, double bidPrice,int campaignId,int queryGroupId) {
+    List<Ad> GetAdBasicInfoByQuery(String query, double bidPrice, int campaignId, int queryGroupId) {
         List<Ad> products = new ArrayList<>();
         try {
             if (false) {
