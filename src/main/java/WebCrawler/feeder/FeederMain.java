@@ -1,13 +1,12 @@
 package WebCrawler.feeder;
 
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.QueueingConsumer;
 
 public class FeederMain {
     private final static String QUEUE_NAME = "distributed-crawler-queue-feed";

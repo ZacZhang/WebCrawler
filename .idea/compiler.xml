@@ -7,10 +7,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="SearchAdvertising" />
+        <module name="WebCrawler" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="SearchAdvertising" target="1.7" />
+      <module name="WebCrawler" target="1.5" />
     </bytecodeTargetLevel>
   </component>
 </project>
